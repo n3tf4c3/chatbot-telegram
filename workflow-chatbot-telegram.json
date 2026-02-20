@@ -1,0 +1,218 @@
+﻿{
+  "name": "Telegram Weather (Simple)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        672
+      ],
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "queue",
+              "value": "={{ (() => { let text = ($json.message?.text || '').trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/\\s*,\\s*/g, ',').replace(/\\s+/g, ' '); const parts = text.split(','); if (parts.length === 2 && /^[a-z]{2}$/.test(parts[1])) return `${parts[0]},br`; return text; })() }}",
+              "type": "string"
+            },
+            {
+              "name": "chat_id",
+              "value": "={{ $json.message?.chat?.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-queue-chat",
+      "name": "Set (queue + chat_id)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -16,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.openweathermap.org/data/2.5/weather",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "queue",
+              "value": "={{ $json.queue }}"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.queue }}"
+            },
+            {
+              "name": "units",
+              "value": "metric"
+            },
+            {
+              "name": "lang",
+              "value": "pt_br"
+            },
+            {
+              "name": "appid",
+              "value": "={{ $env.OPENWEATHER_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "fullResponse": true,
+          "ignoreResponseCode": true
+        }
+      },
+      "id": "openweather-http",
+      "name": "OpenWeather HTTP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ ($json.statusCode >= 200 && $json.statusCode < 300) && ($json.body?.main?.temp !== undefined) && !!$json.body?.name }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-ok",
+      "name": "IF (OK?)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node['Set (queue + chat_id)'].json.chat_id }}",
+        "text": "={{ `\\uD83C\\uDF24\\uFE0F A temperatura em ${$json.body.name} \\u00E9 de ${Math.round($json.body.main.temp)}\\u00B0C.` }}",
+        "additionalFields": {}
+      },
+      "id": "telegram-success",
+      "name": "Telegram Send (Success)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        560
+      ],
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram Bot Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node['Set (queue + chat_id)'].json.chat_id }}",
+        "text": "\\u274C Cidade n\\u00E3o encontrada. Use o formato Cidade,UF (ex.: S\\u00E3o Paulo,SP).",
+        "additionalFields": {}
+      },
+      "id": "telegram-error",
+      "name": "Telegram Send (Error)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        768
+      ],
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram Bot Account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set (queue + chat_id)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set (queue + chat_id)": {
+      "main": [
+        [
+          {
+            "node": "OpenWeather HTTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenWeather HTTP": {
+      "main": [
+        [
+          {
+            "node": "IF (OK?)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF (OK?)": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send (Success)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Send (Error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "00000000-0000-0000-0000-000000000003",
+  "id": "telegram-weather-simple",
+  "tags": []
+}
