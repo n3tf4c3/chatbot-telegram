@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "Telegram Weather (Simple)",
   "nodes": [
     {
@@ -8,17 +8,19 @@
         ],
         "additionalFields": {}
       },
-      "id": "telegram-trigger",
+      "id": "b839032f-590a-445c-99de-31522e1541f5",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
       "position": [
         -288,
-        672
+        656
       ],
+      "webhookId": "__REDACTED_WEBHOOK_ID__",
       "credentials": {
         "telegramApi": {
-          "name": "Telegram Bot Account"
+          "id": "__REDACTED_CREDENTIAL_ID__",
+          "name": "__REDACTED_CREDENTIAL_NAME__"
         }
       }
     },
@@ -27,42 +29,39 @@
         "assignments": {
           "assignments": [
             {
+              "id": "0d124894-0eb7-4ae2-aa7b-cd3013e8ea65",
               "name": "queue",
-              "value": "={{ (() => { let text = ($json.message?.text || '').trim().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/\\s*,\\s*/g, ',').replace(/\\s+/g, ' '); const parts = text.split(','); if (parts.length === 2 && /^[a-z]{2}$/.test(parts[1])) return `${parts[0]},br`; return text; })() }}",
+              "value": "={{ (() => {\n  const text = ($json.message.text || '').trim().replace(/\\s*,\\s*/g, ',');\n  const parts = text.split(',');\n\n  if (parts.length === 2 && parts[1].length === 2) return `${parts[0]},BR`;\n  if (parts.length === 1 && parts[0]) return `${parts[0]},BR`;\n\n  return text;\n})() }}",
               "type": "string"
             },
             {
-              "name": "chat_id",
-              "value": "={{ $json.message?.chat?.id }}",
+              "id": "d8611f60-ded3-458f-8865-42a9ec793693",
+              "name": "=chat_id",
+              "value": "={{ $json.message.chat.id }}",
               "type": "string"
             }
           ]
         },
         "options": {}
       },
-      "id": "set-queue-chat",
+      "id": "69961857-dc82-478f-912b-77dce3fe2442",
       "name": "Set (queue + chat_id)",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -16,
-        672
+        -64,
+        656
       ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "https://api.openweathermap.org/data/2.5/weather",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
             {
-              "name": "queue",
-              "value": "={{ $json.queue }}"
-            },
-            {
               "name": "q",
-              "value": "={{ $json.queue }}"
+              "value": "={{ $node[\"Set (queue + chat_id)\"].json.queue }}"
             },
             {
               "name": "units",
@@ -79,77 +78,97 @@
           ]
         },
         "options": {
-          "fullResponse": true,
-          "ignoreResponseCode": true
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
         }
       },
-      "id": "openweather-http",
+      "id": "8bc2a125-57c9-4c20-9509-d187a5f7c337",
       "name": "OpenWeather HTTP",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        240,
-        672
+        160,
+        656
       ]
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
             {
-              "value1": "={{ ($json.statusCode >= 200 && $json.statusCode < 300) && ($json.body?.main?.temp !== undefined) && !!$json.body?.name }}",
-              "value2": true
+              "id": "aefed67a-6c36-45a1-b533-0ffc63b21472",
+              "leftValue": "={{ String($json.cod) }}",
+              "rightValue": "200",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
             }
-          ]
+          ],
+          "combinator": "and"
         },
+        "looseTypeValidation": "=",
         "options": {}
       },
-      "id": "if-ok",
+      "id": "23afd55b-9d9c-4d0d-8985-69ed92f611f6",
       "name": "IF (OK?)",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        480,
-        672
+        384,
+        656
       ]
     },
     {
       "parameters": {
         "chatId": "={{ $node['Set (queue + chat_id)'].json.chat_id }}",
-        "text": "={{ `\\uD83C\\uDF24\\uFE0F A temperatura em ${$json.body.name} \\u00E9 de ${Math.round($json.body.main.temp)}\\u00B0C.` }}",
+        "text": "={{ `🌤️ A temperatura em ${$json.name} é de ${Math.round($json.main.temp)}°C.` }}",
         "additionalFields": {}
       },
-      "id": "telegram-success",
+      "id": "0d28ad00-f086-4b53-a75f-e35d4f975704",
       "name": "Telegram Send (Success)",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        720,
+        608,
         560
       ],
+      "webhookId": "__REDACTED_WEBHOOK_ID__",
       "credentials": {
         "telegramApi": {
-          "name": "Telegram Bot Account"
+          "id": "__REDACTED_CREDENTIAL_ID__",
+          "name": "__REDACTED_CREDENTIAL_NAME__"
         }
       }
     },
     {
       "parameters": {
         "chatId": "={{ $node['Set (queue + chat_id)'].json.chat_id }}",
-        "text": "\\u274C Cidade n\\u00E3o encontrada. Use o formato Cidade,UF (ex.: S\\u00E3o Paulo,SP).",
+        "text": "❌ Cidade não encontrada. Use o formato Cidade, UF (ex.: Cuiaba, MT).",
         "additionalFields": {}
       },
-      "id": "telegram-error",
+      "id": "422e4e0a-55c3-4a5c-a684-5074a4c32356",
       "name": "Telegram Send (Error)",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        720,
-        768
+        608,
+        752
       ],
+      "webhookId": "__REDACTED_WEBHOOK_ID__",
       "credentials": {
         "telegramApi": {
-          "name": "Telegram Bot Account"
+          "id": "__REDACTED_CREDENTIAL_ID__",
+          "name": "__REDACTED_CREDENTIAL_NAME__"
         }
       }
     }
@@ -208,11 +227,17 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "versionId": "00000000-0000-0000-0000-000000000003",
-  "id": "telegram-weather-simple",
+  "versionId": "__REDACTED_VERSION_ID__",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "__REDACTED_INSTANCE_ID__"
+  },
+  "id": "__REDACTED_WORKFLOW_ID__",
   "tags": []
 }
