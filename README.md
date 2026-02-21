@@ -1,20 +1,14 @@
 ﻿# Chatbot Telegram + OpenWeather (n8n)
 
-Chatbot de clima no Telegram usando n8n e OpenWeather.
-O usuário envia uma cidade (ex.: `Belo Horizonte,MG`) e recebe a temperatura atual em celsius.
+Workflow de chatbot no Telegram que consulta temperatura atual via OpenWeather.
+O usuario envia uma cidade (ex.: `Cuiaba,MT`) e recebe a resposta no proprio Telegram.
 
-## Arquivos da entrega
+## Entrega
 
 - `workflow-chatbot-telegram.json`: workflow exportado do n8n.
-- `README.md`: instruções de configuração, importação e execução.
+- `README.md`: descricao do projeto, importacao, credenciais e execucao.
 
-## Requisitos
-
-- n8n em execução (Cloud ou self-hosted)
-- Token do bot do Telegram
-- API key da OpenWeather
-
-## Variáveis esperadas
+## Variaveis esperadas
 
 - `OPENWEATHER_API_KEY`
 - `TELEGRAM_BOT_TOKEN`
@@ -22,58 +16,55 @@ O usuário envia uma cidade (ex.: `Belo Horizonte,MG`) e recebe a temperatura at
 ## Como importar o workflow no n8n
 
 1. Abra o n8n.
-2. Clique em `Workflows` > `Import from File`.
+2. Va em `Workflows` > `Import from File`.
 3. Selecione `workflow-chatbot-telegram.json`.
 4. Salve o workflow.
 
-## Como configurar credenciais no n8n
+## Como inserir credenciais no n8n
 
 ### Telegram
 
-1. Crie uma credencial do tipo **Telegram API** no n8n.
-2. No campo de token, use seu token real do bot (ou expressão com variável de ambiente, se preferir).
-3. Associe essa credencial aos nós:
+1. Garanta que `TELEGRAM_BOT_TOKEN` esta disponivel no ambiente do n8n.
+2. Crie uma credencial do tipo `Telegram API`.
+3. No campo de token, use a expressao `{{$env.TELEGRAM_BOT_TOKEN}}`.
+4. Associe a credencial aos nos:
    - `Telegram Trigger`
    - `Telegram Send (Success)`
    - `Telegram Send (Error)`
-4. Importante: o `Telegram Trigger` exige webhook **HTTPS público**.
-   - o endereço base do n8n não pode ser `http://localhost`.
-   - use domínio público com HTTPS para registrar o webhook no Telegram.
+5. Para o trigger funcionar, o n8n precisa estar exposto em HTTPS publico (nao `localhost`).
 
 ### OpenWeather
 
-- O workflow usa `{{$env.OPENWEATHER_API_KEY}}` no nó HTTP Request.
-- Garanta que a variável está disponível no ambiente do n8n.
+1. Garanta que `OPENWEATHER_API_KEY` esta disponivel no ambiente do n8n.
+2. O no `OpenWeather HTTP` ja usa `{{$env.OPENWEATHER_API_KEY}}` no parametro `appid`.
 
-## Fluxo implementado (requisitos)
+## Exemplo de ambiente (.env)
 
-1. **Trigger**: `Telegram Trigger` recebe mensagem de texto.
-2. **Entrada**: `Set (queue + chat_id)` cria variável `queue`:
-   - trim
-   - minúsculas
-   - remoção de acentos
-   - ajuste de espaços/`,`
-   - converte `Cidade,UF` para `cidade,br`
-3. **OpenWeather**: nó `OpenWeather HTTP` consulta:
-   - endpoint `https://api.openweathermap.org/data/2.5/weather`
-   - query params: `queue`, `q`, `units=metric`, `lang=pt_br`, `appid={{$env.OPENWEATHER_API_KEY}}`
-4. **Validação + extração**: nó `IF (OK?)` valida status HTTP e campos esperados (`main.temp`, `name`).
-5. **Resposta**:
-   - sucesso: `🌤️ A temperatura em <cidade> é de <temp>°C.`
-   - erro: `❌ Cidade não encontrada. Use o formato Cidade,UF (ex.: São Paulo,SP).`
+```env
+OPENWEATHER_API_KEY=COLE_SUA_CHAVE_AQUI
+TELEGRAM_BOT_TOKEN=COLE_SEU_TOKEN_AQUI
+```
 
-## Como executar e testar
+## Como executar o chatbot
 
 1. Ative o workflow no n8n.
-2. Envie para o bot no Telegram:
+2. Envie mensagens para o bot no Telegram, por exemplo:
    - `Sao Paulo,SP`
    - `Rio de Janeiro,RJ`
    - `Curitiba,PR`
-3. Verifique retorno de temperatura.
-4. Teste erro com cidade inválida:
-   - `CidadeInexistente,ZZ`
+3. Retorno esperado (sucesso): temperatura atual da cidade.
+4. Teste de erro: envie uma cidade invalida, por exemplo `CidadeInexistente,ZZ`.
+5. Retorno esperado (erro): mensagem informando que a cidade nao foi encontrada.
 
-## Segurança
+## Comportamento do workflow
 
-- O JSON exportado não contém tokens/chaves reais.
+1. `Telegram Trigger` recebe mensagem de texto.
+2. `Set (queue + chat_id)` prepara `queue` e `chat_id`.
+3. `OpenWeather HTTP` consulta `https://api.openweathermap.org/data/2.5/weather`.
+4. `IF (OK?)` valida resposta (`cod == 200`).
+5. Fluxo de sucesso envia temperatura; fluxo de erro envia mensagem amigavel.
 
+## Seguranca
+
+- O `workflow-chatbot-telegram.json` foi sanitizado e nao possui segredos reais.
+- Nao commitar `.env` com valores reais.
